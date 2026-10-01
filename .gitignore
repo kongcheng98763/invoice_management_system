@@ -8,6 +8,9 @@
 .idea
 .venv
 temp/
+.pdf
+.xlsm
+.png
 
 # User-specific files
 *.rsuser

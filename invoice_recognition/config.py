@@ -5,7 +5,7 @@
 
 # 基础路径配置
 base_path = r".\报销"
-excel_filename = r"报销表.xlsm"
+excel_filename = r"temp/报销表.xlsm"
 
 # 报销类型 -> 包含的类别
 reimbursement_map = {
