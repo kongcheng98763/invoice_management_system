@@ -1,6 +1,8 @@
 import pdfplumber
 import re
 
+from tkinter import messagebox, Tk
+
 
 def extract_invoice_train(page):
     """
@@ -75,9 +77,23 @@ def extract_invoice_train(page):
     fields["id"] = id_number
     fields["person"] = person
 
+    # 6. 站点信息"xx"站->"xx"站
+    station1 = None
+    station2 = None
+    box1 = (0,70,241,105)
+    box2 = (329,69,page.width,105)
+    station1 = page.crop(box1).extract_text().strip()
+    station2 = page.crop(box2).extract_text().strip()
+
+    parts1 = station1.split("\n")
+    parts2 = station2.split("\n")
+
+    fields["site"] = [parts1[0], parts2[0]]
+
     return fields
 
-with pdfplumber.open("temp/普通发票.pdf") as pdf:
+
+with pdfplumber.open("temp/火车票.pdf") as pdf:
     length=len(pdf.pages)
     if length==1:
         page=pdf.pages[0]
@@ -85,3 +101,7 @@ with pdfplumber.open("temp/普通发票.pdf") as pdf:
         print(field)
     else:
         print("超过一页")
+        root = Tk()
+        root.withdraw()  # 隐藏主窗口，只显示弹窗
+        messagebox.showwarning("警告", "PDF超过一页")
+        root.destroy()
