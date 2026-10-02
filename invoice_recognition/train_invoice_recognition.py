@@ -1,7 +1,8 @@
 import pdfplumber
 import re
+import unicodedata
 
-from tkinter import messagebox, Tk
+from tkinter import messagebox
 
 
 def extract_invoice_train(page):
@@ -11,27 +12,33 @@ def extract_invoice_train(page):
     输出：dict， 即fields这一变量
     键值对如下: fields["is_train"]     是否火车票(通过查找电子客票号来判断是火车票还是普通发票)
               对于发票应该先判断这一键值对来判断是否是火车票，非火车票有且仅有一个键值对
-              fields["invoice_no"]   发票号码    / fields["invoice_date"] 行程日期
-              fields["invoice_time"] 发车时间    / fields["total_amount"] 价税合计金额
-              fields["id"]           脱敏身份证号 / fields["person"]       乘车人姓名
-              fields["site"]         站点
+              fields["E-ticket_number"]  电子客票号25位
+              fields["invoice_no"]   发票号码20位    / fields["invoice_date"] 行程日期
+              fields["invoice_time"] 发车时间       / fields["total_amount"] 价税合计金额
+              fields["id"]           脱敏身份证号    / fields["person"]       乘车人姓名
+              fields["site"] = [parts1[0], parts2[0]]   [0]起点站 [1]终点站
     """
     fields = {}
 
     # 提取页面全部文本，这个方法会把文字按阅读顺序拼接
     text = page.extract_text() or ""
+    # 归一化：把PDF抽出的部首兼容字(如⼦ U+2FBA)还原成正常汉字(子 U+5B50)
+    text = unicodedata.normalize("NFKC", text)
     # 把换行符保留下来，后面做逐行匹配会用到
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
     # 1. 判断是否是火车票，通过查找"电子客票号"来判断，非火车票直接退出
     is_train = False
     for ln in lines:
-        if "电子客票号" in ln:
+        m = re.search(r"\s*电\s*子\s*客\s*票\s*号\s*[:：]?\s*(\d{25})", ln)
+        if m:
             is_train = True
             break
+
     fields["is_train"] = is_train
-    if is_train==False:
+    if not is_train:
         return fields
+    fields["E-ticket_number"] = re.sub(r"\s", "", m.group(1))
 
     # 2. 发票号码：通常以"发票号码"或"No."开头，后面跟一串数字
     invoice_no = None
@@ -53,13 +60,16 @@ def extract_invoice_train(page):
             date_str = m.group(2)
             time_str = m.group(3)
             break
+    if date_str is None or time_str is None:
+        messagebox.showwarning("警告", "日期时间提取失败")
+        return fields
     fields["invoice_date"] = re.sub(r"\s", "", date_str)
     fields["invoice_time"] = re.sub(r"\s", "", time_str)
 
     # 4. 价税合计金额：匹配"小写"那一行，通常格式为 ¥12345.67
     amount = None
     for ln in lines:
-        m = re.search(r"([¥￥$]\s*[0-9]+\.\d{2})", ln)
+        m = re.search(r"([¥￥$]\s*[0-9]+\.*\d{0,2})", ln)
         if m:
             amount = re.sub(r"\s", "", m.group(1))  # 去除货币符号和数字之间的所有空白
             break
@@ -78,30 +88,28 @@ def extract_invoice_train(page):
     fields["person"] = person
 
     # 6. 站点信息"xx"站->"xx"站
-    station1 = None
-    station2 = None
     box1 = (0,70,241,105)
     box2 = (329,69,page.width,105)
-    station1 = page.crop(box1).extract_text().strip()
-    station2 = page.crop(box2).extract_text().strip()
-
+    station1 = page.crop(box1).extract_text()
+    station2 = page.crop(box2).extract_text()
+    if station1 is None or station2 is None:
+        messagebox.showwarning("警告", "站点信息提取失败")
+        return fields
+    station1 = station1.strip()
+    station2 = station2.strip()
     parts1 = station1.split("\n")
     parts2 = station2.split("\n")
-
     fields["site"] = [parts1[0], parts2[0]]
+
 
     return fields
 
-
-with pdfplumber.open("temp/火车票.pdf") as pdf:
-    length=len(pdf.pages)
-    if length==1:
-        page=pdf.pages[0]
-        field=extract_invoice_train(page)
-        print(field)
-    else:
-        print("超过一页")
-        root = Tk()
-        root.withdraw()  # 隐藏主窗口，只显示弹窗
-        messagebox.showwarning("警告", "PDF超过一页")
-        root.destroy()
+if __name__ == "__main__":
+    with pdfplumber.open("temp/火车票.pdf") as pdf:
+        length=len(pdf.pages)
+        if length==1:
+            field=extract_invoice_train(pdf.pages[0])
+            print(field)
+        else:
+            print("超过一页")
+            messagebox.showwarning("警告", "PDF超过一页")

@@ -1,7 +1,8 @@
 import pdfplumber
 from PIL import ImageFont
 
-with pdfplumber.open("temp/火车票.pdf") as pdf:
+path = "temp/5、自攻螺丝.pdf"
+with pdfplumber.open(path) as pdf:
     page = pdf.pages[0]
 
     # 渲染页面为高分辨率图片，同时把单词边框和字符位置画上去
@@ -33,10 +34,10 @@ with pdfplumber.open("temp/火车票.pdf") as pdf:
         label = f"{w['text']} ({w['x0']:.0f},{w['top']:.0f}) {width:.0f}x{height:.0f}"
         im.draw.text((px, max(py - 13, 0)), label, fill="green", font=font)
 
-    im.save("debug_page.png")
+    im.save("temp/debug_page1.png")
 
 
-with pdfplumber.open("temp/火车票.pdf") as pdf:
+with pdfplumber.open(path) as pdf:
     page=pdf.pages[0]
     text=page.extract_text()
     print(text)
