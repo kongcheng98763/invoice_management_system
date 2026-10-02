@@ -1,7 +1,7 @@
 import pdfplumber
 from PIL import ImageFont
 
-path = "temp/5、自攻螺丝.pdf"
+path = "temp/dzfp_26332000007587400606_台州学院_20260902183915.pdf"
 with pdfplumber.open(path) as pdf:
     page = pdf.pages[0]
 
@@ -18,7 +18,7 @@ with pdfplumber.open(path) as pdf:
             for k, v in w.items():
                 f.write(f"{k}: {v}\n")
             f.write(f"x1-x0: {w['x1'] - w['x0']:.2f}\n")        # 宽
-          # f.write(f"y1-y0: {w['y1'] - w['y0']:.2f}\n")
+            #f.write(f"y1-y0: {w['y1'] - w['y0']:.2f}\n")
             f.write(f"bottom-top: {w['bottom'] - w['top']:.2f}\n")  # 高(纵向，pdfplumber无y0/y1)
             f.write("\n")
     # 在每个单词框左上角标出它的坐标 (x0, top)
@@ -39,5 +39,5 @@ with pdfplumber.open(path) as pdf:
 
 with pdfplumber.open(path) as pdf:
     page=pdf.pages[0]
-    text=page.extract_text()
+    text=page.extract_text(use_text_flow=False)
     print(text)

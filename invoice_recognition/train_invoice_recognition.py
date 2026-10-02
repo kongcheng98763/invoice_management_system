@@ -92,6 +92,8 @@ def extract_invoice_train(page):
     box2 = (329,69,page.width,105)
     station1 = page.crop(box1).extract_text()
     station2 = page.crop(box2).extract_text()
+    station1 = unicodedata.normalize("NFKC", station1)
+    station2 = unicodedata.normalize("NFKC", station2)
     if station1 is None or station2 is None:
         messagebox.showwarning("警告", "站点信息提取失败")
         return fields

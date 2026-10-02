@@ -6,16 +6,13 @@ from tkinter import messagebox
 
 def extract_invoice_normal(page):
     """
-        从单页PDF中提取火车票关键字段。
+        从单页PDF中判断发票类型。
         输入：pdfplumber.Page对象
         输出：dict， 即fields这一变量
-        键值对如下: fields["is_train"]     是否火车票(通过查找电子客票号来判断是火车票还是普通发票)
-                  对于发票应该先判断这一键值对来判断是否是火车票，非火车票有且仅有一个键值对
-                  fields["invoice_no"]   发票号码    / fields["invoice_date"] 行程日期
-                  fields["invoice_time"] 发车时间    / fields["total_amount"] 价税合计金额
-                  fields["id"]           脱敏身份证号 / fields["person"]       乘车人姓名
-                  fields["site"]         站点
-                  VAT special invoice   增值税专用发票
+        键值对如下: fields["type"]  发票类型，取值有三种：
+                  "regular_invoice"       电子发票(普通发票)
+                  "vat_special_invoice"   电子发票(增值税专用发票)
+                  None                    未匹配到已知发票类型
     """
     fields = {}
 
@@ -25,21 +22,32 @@ def extract_invoice_normal(page):
     text = unicodedata.normalize("NFKC", text)
     # 把换行符保留下来，后面做逐行匹配会用到
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    print(text)
 
-    # 1. 判断是否是火车票，通过查找"电子客票号"来判断，非火车票直接退出
-    type = None
+    # 1. 判断是否是什么类型的发票,普通发票还是增值税专用发票
+    invoice_type = None
     for ln in lines:
         m1 = re.search(r"\s*电\s*子\s*发\s*票\s*[（(]\s*普\s*通\s*发\s*票\s*[)）]", ln)
         m2 = re.search(r"\s*电\s*子\s*发\s*票\s*[（(]\s*增\s*值\s*税\s*专\s*用\s*发\s*票\s*[)）]", ln)
         if m1:
-            type = "regular_invoice"
+            invoice_type = "regular_invoice"
             break
         if m2:
-            type = "vat_special_invoice"
+            invoice_type = "vat_special_invoice"
             break
-    fields["type"]=type
 
+    fields["type"] = invoice_type
+    if invoice_type is None:
+        messagebox.showwarning("警告", "未匹配到已知发票类型，发票类型为None")
+        return fields
 
+    # 2. 开票日期和发票号码
+    invoice_date = None
+    invoice_number = None
+    box1 = (432,17,page.width,69)
+    info = page.crop(box1).extract_text()
+    info = unicodedata.normalize("NFKC", info)
+    print(info)
     return fields
 
 
