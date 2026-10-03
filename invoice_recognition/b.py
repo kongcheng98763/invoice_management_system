@@ -5,7 +5,7 @@ from PIL import ImageFont
 # Windows 控制台默认 GBK，提取的文字含 ¥ 等字符会打印报错，改 stdout 为 UTF-8
 sys.stdout.reconfigure(encoding="utf-8")
 
-path = "temp/16、铁棒直径15,16mm×100mm.pdf"
+path = "temp/7、红外传感.pdf"
 
 # 画中文需要支持 CJK 的字体，Windows 下用微软雅黑；拿不到则回退默认(只能显示数字)
 try:
@@ -63,6 +63,6 @@ with pdfplumber.open(path) as pdf:
     log(f"\n已保存调试图: temp/debug_table.png (不同颜色=不同单元格坐标)")
 
     # 将坐标信息输出到 temp/table_cells.txt
-    with open("temp/table_cells.txt", "w", encoding="utf-8") as f:
+    with open("temp/table_cells2.txt", "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")
     print("已保存坐标文本: temp/table_cells.txt")
