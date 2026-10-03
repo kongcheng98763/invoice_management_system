@@ -49,7 +49,7 @@ def extract_invoice_train(page):
         if m:
             is_train = True
             break
-
+    
     fields["is_train"] = is_train
     if not is_train:
         return fields

@@ -163,8 +163,20 @@ class App(tk.Tk):
         self.run_btn.pack(side="left")
         tk.Button(actions, text="打开结果目录", command=self.open_out).pack(side="left", padx=8)
 
-        self.log = scrolledtext.ScrolledText(self, state="disabled", wrap="none")
+        self.log = scrolledtext.ScrolledText(self, wrap="none")
         self.log.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        # 只读靠屏蔽输入事件，而不是 state="disabled"：被禁用的 Text 会连鼠标事件一起吞掉
+        # （disabledaction 默认 ignore），滚动条拖动和选中复制都点不动
+        self.log.bind("<Key>", self._readonly_key)
+        for seq in ("<<Paste>>", "<<PasteSelection>>"):
+            self.log.bind(seq, lambda event: "break")
+
+    @staticmethod
+    def _readonly_key(event):
+        # Ctrl-C（\x03）复制、Ctrl-A（\x01）全选要放行，其余按键吞掉，日志内容不可被改动
+        if event.char in ("\x03", "\x01"):
+            return None
+        return "break"
 
     def pick_folder(self):
         chosen = filedialog.askdirectory(title="选择要搜索 PDF 的文件夹")
@@ -172,10 +184,11 @@ class App(tk.Tk):
             self.folder_var.set(str(Path(chosen).resolve()))
 
     def write(self, line):
-        self.log.configure(state="normal")
+        # 用户把视图往上拖走后不再强行拉回底部，否则每来一行就把拖动结果顶掉
+        following = self.log.yview()[1] >= 0.999
         self.log.insert("end", line + "\n")
-        self.log.see("end")
-        self.log.configure(state="disabled")
+        if following:
+            self.log.see("end")
 
     def run(self):
         if self.scanning:

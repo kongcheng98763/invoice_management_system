@@ -31,7 +31,7 @@ def extract_invoice_regular(page):
     title_lines = [ln.strip() for ln in title_lines.splitlines() if ln.strip()]
 
     for ln in title_lines:
-        m = re.search(r"\s*电\s*子\s*发\s*票[(（]\s*普\s*通\s*发\s*票\s*[）)]", ln)
+        m = re.search(r"\s*电\s*子\s*发\s*票\s*[(（]\s*普\s*通\s*发\s*票\s*[）)]", ln)
         if m:
             is_regular = True
             break

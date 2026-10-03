@@ -36,7 +36,7 @@ def extract_invoice_VAT(page):
     title_lines = [ln.strip() for ln in title_lines.splitlines() if ln.strip()]
 
     for ln in title_lines:
-        m = re.search(r"\s*电\s*子\s*发\s*票[(（]增\s*值\s*税\s*专\s*用\s*发\s*票\s*[）)]", ln)
+        m = re.search(r"\s*电\s*子\s*发\s*票\s*[(（]增\s*值\s*税\s*专\s*用\s*发\s*票\s*[）)]", ln)
         if m:
             is_vat = True
             break
