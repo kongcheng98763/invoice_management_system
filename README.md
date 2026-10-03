@@ -55,8 +55,9 @@ uv sync
 
 | 键 | 含义 | 备注 |
 |---|---|---|
-| `is_train` | 是否为火车票 | 需同时匹配票面标题「电子发票（铁路电子客票）」和其后的「电子客票号」；为 `False` 时返回的 dict **只含这一个键**，调用方必须先判此键再分流 |
-| `e_ticket_number` | 电子客票号 | 取「电子客票号」后面的整段字符（不再是固定 25 位数字，函数 docstring 仍写作 `E_ticket_number`，实际键名是小写） |
+| `is_train` | 是否为火车票 | 在标题裁剪框 `(89, 8, (418 + page.width) / 2, 38)` 内匹配「电子发票（铁路电子客票）」；为 `False` 时返回的 dict **只含这一个键**，调用方必须先判此键再分流 |
+| `e_ticket_number` | 电子客票号 | 「电子客票号」后紧跟的 25 位 |
+| `state` | 客票状态 | 紧跟客票号的文字，如 `退票`／`补票`／`始发改签`；没有则为 `None` |
 | `invoice_no` | 发票号码 | 8–20 位，兼容 `发票号码` 与 `No.` 两种前缀 |
 | `invoice_date` / `invoice_time` | 行程日期 / 发车时间 | 如 `2026年04月17日` + `11:54` |
 | `total_amount` | 价税合计（小写） | 如 `¥39.00` |
@@ -65,33 +66,38 @@ uv sync
 
 注意事项：
 
-- 票面标题和「电子客票号」是在 `page.extract_text(use_text_flow=True)` 的流式文本里匹配的，其余字段用默认阅读顺序的文本；两条路径都要归一化。
-- 日期时间或站点提取失败时函数**提前返回半成品 dict**，其后的键可能缺失或为 `None`，不能假设键齐全。
+- 三条取文路径并存：`is_train` 用标题裁剪框，`e_ticket_number`/`state` 用 `extract_text(use_text_flow=True)` 的流式文本，其余字段用默认阅读顺序的文本；都要先 NFKC 归一化。
+- 日期时间提取失败时函数**提前返回半成品 dict**，其后的键可能缺失或为 `None`，不能假设键齐全。
 - 失败提示走 `tkinter.messagebox.showwarning`，未来构建 GUI 时再换成日志。
-
-### `normal_invoice_recognition.py`
-
-`extract_invoice_normal(page)`：只判断票面有没有「电子发票」字样，用来把非发票的 PDF 挡在外面。返回 `dict`。
-
-| 键 | 含义 | 备注 |
-|---|---|---|
-| `is_invoice` | 是否电子发票 | 逐行匹配 `\s*电\s*子\s*发\s*票`（匹配前已 NFKC 归一化）；不含「电子发票」四字的票据（如「增值税电子专用发票」单写形式）会被判为 `False` |
 
 ### `regular_invoice_recognition.py`
 
-`extract_invoice_regular(page)`：判定发票类型，并从票头裁剪区取开票日期和发票号码。返回 `dict`。
+`extract_invoice_regular(page)`：判断是否电子发票（普通发票），是则再取开票日期和发票号码。返回 `dict`。
 
 | 键 | 含义 | 备注 |
 |---|---|---|
-| `type` | 发票类型 | `"regular_invoice"` = 电子发票（普通发票）；`"vat_special_invoice"` = 电子发票（增值税专用发票）；`None` = 未匹配到已知类型，此时**只返回这一个键** |
+| `is_regular` | 是否普通发票 | 在标题裁剪框 `(128, 10, 416, 49)` 内匹配「电子发票（普通发票）」，括号全角半角都兼容；为 `False` 时**只返回这一个键** |
 | `invoice_date` | 开票日期 | 票头裁剪框 `(432, 17, page.width, 69)` 内匹配 `开票日期：2026年9月2日` |
 | `invoice_number` | 发票号码 | 同一裁剪框内匹配 20 位数字 |
 
 注意事项：
 
-- 判定靠匹配票面标题「电子发票（普通发票）/（增值税专用发票）」，括号做了全角半角兼容；标题措辞变化或新增票种都要扩规则。
-- `type` 为 `None` 时不会走到日期/号码那一步，调用方需先判 `type`。
+- `is_regular` 为 `False` 时不会走到日期/号码那一步，调用方需先判此键。
 - 日期或号码没匹配到时对应值为 `None` 并弹警告，不抛异常。
+- 标题措辞变化或新增票种都要扩规则。
+
+### `VAT_invoice_recognition.py`
+
+`extract_invoice_VAT(page)`：判断是否电子发票（增值税专用发票）。返回 `dict`。
+
+| 键 | 含义 | 备注 |
+|---|---|---|
+| `is_vat` | 是否增值税专用发票 | 在标题裁剪框 `(121, 14, 432, 52)` 内匹配「电子发票（增值税专用发票）」；为 `False` 时**只返回这一个键** |
+
+注意事项：
+
+- **目前只有关键字判定**，函数体内 `# 2.` 之后的票面字段（日期、号码等）还未实现。
+- 原来的三合一 `type` 判据已拆成 `is_regular` / `is_vat` 两个模块，`normal_invoice_recognition.py`（「电子发票」字样筛查）也已删除，那道筛查现在内置在 `classify_invoices.py` 的 `ELECTRONIC_INVOICE_RE`。
 
 ### `classify_invoices.py`
 
@@ -109,7 +115,7 @@ uv sync
     └── 多页文件/
 ```
 
-分类顺序：先用 `is_invoice`（「电子发票」字样）作总开关筛掉无关 PDF，再细分——`is_train` → 火车票；`type` 为 `regular_invoice`/`vat_special_invoice` → 普通/增值税发票；剩下类型未知的归其他发票。`is_invoice` 为假的文件不复制，只在日志里列出。多页 PDF 归到所属类别的 `多页文件` 子文件夹；重名文件自动追加 `(1)(2)`。
+分类顺序：先用 `ELECTRONIC_INVOICE_RE`（整页逐行匹配「电子发票」字样）作总开关筛掉无关 PDF，再依次问 `is_train` → 火车票、`is_vat` → 增值税发票、`is_regular` → 普通发票，过筛但三种都不匹配的归其他发票。没过筛的文件不复制，只在日志里列出。多页 PDF 归到所属类别的 `多页文件` 子文件夹；重名文件自动追加 `(1)(2)`。
 
 注意事项：
 

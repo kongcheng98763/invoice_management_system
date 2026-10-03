@@ -55,8 +55,9 @@ Normalisation: characters coming out of a PDF are often Kangxi-radical compatibi
 
 | Key | Meaning | Notes |
 |---|---|---|
-| `is_train` | whether this is a train ticket | requires both the page title 「电子发票（铁路电子客票）」 and the 「电子客票号」 that follows it; when `False` the returned dict **contains only this key**, so callers must check it before routing |
-| `e_ticket_number` | e-ticket number | everything following 「电子客票号」 (no longer a fixed 25 digits; the docstring above the function still says `E_ticket_number`, the lowercase key is what is set) |
+| `is_train` | whether this is a train ticket | matched as the title 「电子发票（铁路电子客票）」 inside the crop box `(89, 8, (418 + page.width) / 2, 38)`; when `False` the returned dict **contains only this key**, so callers must check it before routing |
+| `e_ticket_number` | e-ticket number | the 25 characters following 「电子客票号」 |
+| `state` | ticket state | the text right after the e-ticket number, e.g. `退票` (refunded), `补票` (reissued), `始发改签` (rebooked at origin); `None` when absent |
 | `invoice_no` | invoice number | 8–20 digits, accepts both the `发票号码` and `No.` prefixes |
 | `invoice_date` / `invoice_time` | travel date / departure time | e.g. `2026年04月17日` + `11:54` |
 | `total_amount` | total incl. tax (lowercase figure) | e.g. `¥39.00` |
@@ -65,33 +66,38 @@ Normalisation: characters coming out of a PDF are often Kangxi-radical compatibi
 
 Caveats:
 
-- The title and 「电子客票号」 are matched against `page.extract_text(use_text_flow=True)`, the remaining fields against the default reading-order text; both paths normalise first.
-- When the date/time or station extraction fails the function **returns a partially filled dict**; later keys may be missing or `None`, so don't assume they are all present.
+- Three text sources are in play: `is_train` reads a cropped title box, `e_ticket_number`/`state` come from `extract_text(use_text_flow=True)`, the rest from the default reading-order text; all three normalise first.
+- When the date/time extraction fails the function **returns a partially filled dict**; later keys may be missing or `None`, so don't assume they are all present.
 - Failures are reported through `tkinter.messagebox.showwarning`; this becomes logging once the GUI is built.
-
-### `normal_invoice_recognition.py`
-
-`extract_invoice_normal(page)`: only checks whether the page carries the wording 「电子发票」, which keeps non-invoice PDFs out. Returns a `dict`.
-
-| Key | Meaning | Notes |
-|---|---|---|
-| `is_invoice` | whether this is an electronic invoice | matches `\s*电\s*子\s*发\s*票` line by line (after NFKC); tickets whose title does not contain those four consecutive characters (e.g. a bare 「增值税电子专用发票」) come back `False` |
 
 ### `regular_invoice_recognition.py`
 
-`extract_invoice_regular(page)`: classifies the invoice type, then reads the issue date and invoice number from the cropped header region. Returns a `dict`.
+`extract_invoice_regular(page)`: tells whether the page is an electronic ordinary invoice, and if so reads the issue date and invoice number. Returns a `dict`.
 
 | Key | Meaning | Notes |
 |---|---|---|
-| `type` | invoice type | `"regular_invoice"` = electronic ordinary invoice (电子发票（普通发票）); `"vat_special_invoice"` = electronic VAT special invoice (电子发票（增值税专用发票）); `None` = no known type, in which case **this is the only key returned** |
+| `is_regular` | whether this is an ordinary invoice | matched as 「电子发票（普通发票）」 inside the title crop box `(128, 10, 416, 49)`, full-width and half-width parentheses both accepted; when `False` **this is the only key returned** |
 | `invoice_date` | issue date | matched as `开票日期：2026年9月2日` inside the header crop box `(432, 17, page.width, 69)` |
 | `invoice_number` | invoice number | 20 digits, same crop box |
 
 Caveats:
 
-- Classification matches the page title 「电子发票（普通发票）/（增值税专用发票）」, accepting both full-width and half-width parentheses; reworded titles or new invoice types require new rules.
-- When `type` is `None` the function stops before the date/number step, so callers must check `type` first.
+- When `is_regular` is `False` the function stops before the date/number step, so callers must check it first.
 - A missing date or number yields `None` plus a warning rather than an exception.
+- Reworded titles or new invoice types require new rules.
+
+### `VAT_invoice_recognition.py`
+
+`extract_invoice_VAT(page)`: tells whether the page is an electronic VAT special invoice. Returns a `dict`.
+
+| Key | Meaning | Notes |
+|---|---|---|
+| `is_vat` | whether this is a VAT special invoice | matched as 「电子发票（增值税专用发票）」 inside the title crop box `(121, 14, 432, 52)`; when `False` **this is the only key returned** |
+
+Caveats:
+
+- **Only the keyword check exists**; the fields after the `# 2.` marker in the function body (date, number, …) are not implemented.
+- The former combined `type` check has been split into the `is_regular` and `is_vat` modules, and `normal_invoice_recognition.py` (the 「电子发票」 wording screen) was deleted — that screen now lives in `classify_invoices.py` as `ELECTRONIC_INVOICE_RE`.
 
 ### `classify_invoices.py`
 
@@ -109,7 +115,7 @@ The collector: pick a folder, it walks the PDFs underneath, classifies each one 
     └── 多页文件/
 ```
 
-Routing order: `is_invoice` (the 「电子发票」 wording) acts as the gate that drops irrelevant PDFs first, then the type is narrowed down — `is_train` → 火车票; `type` = `regular_invoice` / `vat_special_invoice` → 普通发票 / 增值税发票; anything left with an unknown type → 其他发票. Files failing the gate are not copied, only listed in the log. Multi-page PDFs go to the `多页文件` subfolder of their category; name clashes get `(1)(2)` suffixes.
+Routing order: `ELECTRONIC_INVOICE_RE` (the 「电子发票」 wording, checked line by line over the whole page) acts as the gate that drops irrelevant PDFs first, then the page is asked in turn — `is_train` → 火车票, `is_vat` → 增值税发票, `is_regular` → 普通发票; anything that passed the gate but matches none of the three → 其他发票. Files failing the gate are not copied, only listed in the log. Multi-page PDFs go to the `多页文件` subfolder of their category; name clashes get `(1)(2)` suffixes.
 
 Caveats:
 

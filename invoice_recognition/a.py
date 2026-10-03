@@ -1,7 +1,7 @@
 import pdfplumber
 from PIL import ImageFont
 
-path = ("temp/赵老师高铁-台州至上海.pdf")
+path = ("temp/普通发票1.pdf")
 with pdfplumber.open(path) as pdf:
     page = pdf.pages[0]
 
@@ -34,7 +34,7 @@ with pdfplumber.open(path) as pdf:
         label = f"{w['text']} ({w['x0']:.0f},{w['top']:.0f}) {width:.0f}x{height:.0f}"
         im.draw.text((px, max(py - 13, 0)), label, fill="green", font=font)
 
-    im.save("temp/debug_page1.png")
+    im.save("temp/debug_page2.png")
 
 
 with pdfplumber.open(path) as pdf:

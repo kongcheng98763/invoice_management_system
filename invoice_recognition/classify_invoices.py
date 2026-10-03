@@ -11,8 +11,10 @@
 
 import logging
 import os
+import re
 import shutil
 import threading
+import unicodedata
 from pathlib import Path
 from queue import Empty, Queue
 from tkinter import filedialog, messagebox, scrolledtext
@@ -38,7 +40,7 @@ logging.getLogger("pdfminer.pdffont").addFilter(_QuietFontBBox())
 _gui_warn = messagebox.showwarning
 messagebox.showwarning = lambda *args, **kwargs: None
 
-from normal_invoice_recognition import extract_invoice_normal
+from VAT_invoice_recognition import extract_invoice_VAT
 from regular_invoice_recognition import extract_invoice_regular
 from train_invoice_recognition import extract_invoice_train
 
@@ -46,30 +48,32 @@ CATEGORIES = ["火车票", "增值税发票", "普通发票", "其他发票"]
 MULTI_PAGE_FOLDER = "多页文件"
 DEFAULT_OUT = Path(__file__).resolve().parent / "temp" / "发票分类"
 
+# normal_invoice_recognition 已删除，「电子发票」总开关留在这里：
+# 三种票的标题都以「电子发票」开头，用它先筛掉说明书、采购单之类无关 PDF，省下后面的裁剪解析
+ELECTRONIC_INVOICE_RE = re.compile(r"\s*电\s*子\s*发\s*票")
+
 
 def is_electronic_invoice(page):
-    """是否电子发票，判定直接复用 normal_invoice_recognition 里的「电子发票」字样匹配。"""
-    return bool(extract_invoice_normal(page).get("is_invoice"))
+    for line in (page.extract_text() or "").splitlines():
+        if ELECTRONIC_INVOICE_RE.search(unicodedata.normalize("NFKC", line)):
+            return True
+    return False
 
 
 def classify(page):
     """把一页 PDF 归到四类之一；不是电子发票返回 None（不归档）。
 
-    顺序是先总开关后细分：normal 的「电子发票」字样判据覆盖面最广，且能一次性排除说明书、
-    采购清单这类无关 PDF，省下后面两次解析；train 现在要求票面标题为
-    「电子发票（铁路电子客票）」，同样含「电子发票」，所以先筛不会把火车票挡在外面。
+    先总开关后细分：三个提取函数各自裁剪标题区域匹配「电子发票（…）」全称，
+    覆盖面窄，直接逐个调用会把大量无关 PDF 也解析一遍。
     """
     if not is_electronic_invoice(page):
         return None
-
     if extract_invoice_train(page).get("is_train"):
         return "火车票"
-
-    invoice_type = extract_invoice_regular(page).get("type")
-    if invoice_type == "regular_invoice":
-        return "普通发票"
-    if invoice_type == "vat_special_invoice":
+    if extract_invoice_VAT(page).get("is_vat"):
         return "增值税发票"
+    if extract_invoice_regular(page).get("is_regular"):
+        return "普通发票"
     return "其他发票"
 
 

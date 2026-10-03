@@ -39,8 +39,8 @@ def extract_invoice_train(page):
 
     # 1. is_train判断是否是火车票，通过查找特定区域的"电子发票（铁路电子客票）"来判断，非火车票直接退出
     is_train = False
-    box1 = (89, 8, (418 + page.width) / 2, 38)
-    title_lines = page.crop(box1).extract_text(use_text_flow=True) or ""
+    box = (89, 8, (418 + page.width) / 2, 38)
+    title_lines = page.crop(box).extract_text(use_text_flow=True) or ""
     title_lines = unicodedata.normalize("NFKC", title_lines)
     title_lines = [ln.strip() for ln in title_lines.splitlines() if ln.strip()]
 
@@ -119,15 +119,18 @@ def extract_invoice_train(page):
     # 7. station1、station2站点信息"xx"站->"xx"站
     box1 = (0,70,241,105)
     box2 = (329,69,page.width,105)
-    station1 = page.crop(box1).extract_text()
-    station2 = page.crop(box2).extract_text()
+    station1 = page.crop(box1).extract_text() or ""
+    station2 = page.crop(box2).extract_text() or ""
+    station1 = unicodedata.normalize("NFKC", station1)
+    station2 = unicodedata.normalize("NFKC", station2)
+
     if station1 is None or station2 is None:
         messagebox.showwarning("警告", "站点信息提取失败")
         return fields
-    station1 = unicodedata.normalize("NFKC", station1).strip().split("\n")
-    station2 = unicodedata.normalize("NFKC", station2).strip().split("\n")
+    station1 = station1.strip().split("\n")[0]
+    station2 = station2.strip().split("\n")[0]
 
-    fields["site"] = [station1[0], station2[0]]
+    fields["site"] = [station1, station2]
 
     return fields
 

@@ -4,7 +4,7 @@ import unicodedata
 
 from tkinter import messagebox
 
-def extract_invoice_regular(page):
+def extract_invoice_VAT(page):
     """
         从单页PDF中判断发票类型。
         输入：pdfplumber.Page对象
@@ -23,53 +23,41 @@ def extract_invoice_regular(page):
     # 把换行符保留下来，后面做逐行匹配会用到
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
-    # 1. 判断是否是什么类型的发票,普通发票还是增值税专用发票
-    is_regular = False
-    box = (128,10,416,49)
+    # text_flow = page.extract_text(use_text_flow=True) or ""
+    # text_flow = unicodedata.normalize("NFKC", text_flow)
+    # text_flow_lines = [ln.strip() for ln in text_flow.splitlines() if ln.strip()]
+
+
+    # 1. is_vat判断是否是增值税专用发票，通过查找特定区域的"电子发票（增值税专用发票）"来判断，非增值税直接退出
+    is_vat=False
+    box = (121,14,432,52)
     title_lines = page.crop(box).extract_text(use_text_flow=True) or ""
     title_lines = unicodedata.normalize("NFKC", title_lines)
     title_lines = [ln.strip() for ln in title_lines.splitlines() if ln.strip()]
 
     for ln in title_lines:
-        m = re.search(r"\s*电\s*子\s*发\s*票[(（]\s*普\s*通\s*发\s*票\s*[）)]", ln)
+        m = re.search(r"\s*电\s*子\s*发\s*票[(（]增\s*值\s*税\s*专\s*用\s*发\s*票\s*[）)]", ln)
         if m:
-            is_regular = True
+            is_vat = True
             break
 
-    fields["is_regular"] = is_regular
-    if not is_regular:
+    fields["is_vat"] = is_vat
+    if not is_vat:
         return fields
 
-    # 2. 开票日期和发票号码
-    invoice_date = None
-    invoice_number = None
-    box1 = (432,17,page.width,69)
-    info = page.crop(box1).extract_text() or ""
-    info = unicodedata.normalize("NFKC", info)
-    m1 = re.search(r"\s*开\s*票\s*日\s*期\s*[:：]?\s*(\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日)", info)
-    m2 = re.search(r"\s*发\s*票\s*号\s*码\s*[:：]?\s*(\d{20})", info)
-    if m1:
-        invoice_date=re.sub(r"\s","",m1.group(1))
-    else:
-        messagebox.showwarning("警告", "未匹配到开票日期")
-    if m2:
-        invoice_number=re.sub(r"\s","",m2.group(1))
-    else:
-        messagebox.showwarning("警告", "未匹配到发票号码")
+    # 2.
 
-    fields["invoice_date"] = invoice_date
-    fields["invoice_number"] = invoice_number
 
     return fields
 
 
 if __name__ == "__main__":
-    with pdfplumber.open("temp/普通发票1.pdf") as pdf:
+    with pdfplumber.open("temp/增值税1.pdf") as pdf:
         length=len(pdf.pages)
-        field = extract_invoice_regular(pdf.pages[0])
+        field = extract_invoice_VAT(pdf.pages[0])
         print(field)
         if length==1:
-            field=extract_invoice_regular(pdf.pages[0])
+            field=extract_invoice_VAT(pdf.pages[0])
             print(field)
         else:
             print("超过一页")
