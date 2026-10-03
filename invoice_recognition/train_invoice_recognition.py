@@ -27,14 +27,20 @@ def extract_invoice_train(page):
     # 把换行符保留下来，后面做逐行匹配会用到
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
+    text_flow = page.extract_text(use_text_flow=True) or ""
+    text_flow = unicodedata.normalize("NFKC", text_flow)
+    text_flow_lines = [ln.strip() for ln in text_flow.splitlines() if ln.strip()]
+
     # 1. 判断是否是火车票，通过查找"电子客票号"来判断，非火车票直接退出
     is_train = False
     e_ticket_number = None
-    for ln in lines:
-        m = re.search(r"\s*电\s*子\s*客\s*票\s*号\s*[:：]?\s*(\d{25})", ln)
+    for ln in text_flow_lines:
+        m = re.search(r"\s*电\s*子\s*发\s*票\s*[（(]铁\s*路\s*电\s*子\s*客\s*票\s*[)）]", ln)
+        m1 = re.search(r"\s*电\s*子\s*客\s*票\s*号\s*[:：]?\s*([^\n]*)", ln)
         if m:
             is_train = True
-            e_ticket_number = re.sub(r"\s", "", m.group(1))
+            if m1:
+                e_ticket_number = re.sub(r"\s", "", m1.group(1))
             break
 
     fields["is_train"] = is_train

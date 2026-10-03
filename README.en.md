@@ -55,8 +55,8 @@ Normalisation: characters coming out of a PDF are often Kangxi-radical compatibi
 
 | Key | Meaning | Notes |
 |---|---|---|
-| `is_train` | whether this is a train ticket | decided by the presence of the e-ticket number on the page; when `False` the returned dict **contains only this key**, so callers must check it before routing |
-| `e_ticket_number` | e-ticket number | 25 digits (the docstring above the function says `E_ticket_number`; the lowercase key is what is actually set) |
+| `is_train` | whether this is a train ticket | requires both the page title 「电子发票（铁路电子客票）」 and the 「电子客票号」 that follows it; when `False` the returned dict **contains only this key**, so callers must check it before routing |
+| `e_ticket_number` | e-ticket number | everything following 「电子客票号」 (no longer a fixed 25 digits; the docstring above the function still says `E_ticket_number`, the lowercase key is what is set) |
 | `invoice_no` | invoice number | 8–20 digits, accepts both the `发票号码` and `No.` prefixes |
 | `invoice_date` / `invoice_time` | travel date / departure time | e.g. `2026年04月17日` + `11:54` |
 | `total_amount` | total incl. tax (lowercase figure) | e.g. `¥39.00` |
@@ -65,6 +65,7 @@ Normalisation: characters coming out of a PDF are often Kangxi-radical compatibi
 
 Caveats:
 
+- The title and 「电子客票号」 are matched against `page.extract_text(use_text_flow=True)`, the remaining fields against the default reading-order text; both paths normalise first.
 - When the date/time or station extraction fails the function **returns a partially filled dict**; later keys may be missing or `None`, so don't assume they are all present.
 - Failures are reported through `tkinter.messagebox.showwarning`; this becomes logging once the GUI is built.
 
@@ -108,9 +109,11 @@ The collector: pick a folder, it walks the PDFs underneath, classifies each one 
     └── 多页文件/
 ```
 
-Routing priority: `is_train` → 火车票; `type` = `regular_invoice` / `vat_special_invoice` → 普通发票 / 增值税发票; `is_invoice` true but type unknown → 其他发票; `is_invoice` false → not an electronic invoice, nothing is copied and the file is only listed in the log. Multi-page PDFs go to the `多页文件` subfolder of their category; name clashes get `(1)(2)` suffixes.
+Routing order: `is_invoice` (the 「电子发票」 wording) acts as the gate that drops irrelevant PDFs first, then the type is narrowed down — `is_train` → 火车票; `type` = `regular_invoice` / `vat_special_invoice` → 普通发票 / 增值税发票; anything left with an unknown type → 其他发票. Files failing the gate are not copied, only listed in the log. Multi-page PDFs go to the `多页文件` subfolder of their category; name clashes get `(1)(2)` suffixes.
 
 Caveats:
 
-- During a batch scan the extraction functions' popup warnings are temporarily silenced — one dialog per ticket would block the run — and problems are reported in the log instead.
+- The scan runs on a worker thread and feeds the log through a queue; blocking the main thread per PDF is what made the window show "not responding" while dragging.
+- During a batch scan the extraction functions' popup warnings are temporarily silenced — one dialog per ticket would stall the run, and Tk cannot be called off the main thread — problems are reported in the log instead.
 - PDFs that cannot be opened are listed under 无法解析 and not copied.
+- pdfminer emits `Could not get FontBBox …` for fonts whose descriptor lacks FontBBox; measured, text extraction is unaffected, and a `_QuietFontBBox` filter hides only that message.

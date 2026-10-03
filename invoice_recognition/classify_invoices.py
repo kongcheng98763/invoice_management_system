@@ -4,8 +4,9 @@
     python classify_invoices.py        # 打开窗口，选择要搜索的文件夹后点「开始分类」
 
 类别为 火车票 / 增值税发票 / 普通发票 / 其他发票，判定只看第一页（提取函数均为单页设计）。
-多页 PDF 在所属类别文件夹下再放一层「多页文件」子文件夹，单页 PDF 直接放在类别文件夹里。
-识别不出「电子发票」字样的 PDF 视为非电子发票文件，不复制，只在日志里列出。
+先用「电子发票」字样筛掉非发票文件，再细分票种；多页 PDF 在所属类别下再放一层
+「多页文件」子文件夹，单页 PDF 直接放在类别文件夹里。
+不是电子发票的 PDF 不复制，只在日志里列出。
 """
 
 import logging
@@ -52,10 +53,15 @@ def is_electronic_invoice(page):
 
 
 def classify(page):
-    """单页 PDF 归到四类之一；票面不是电子发票则返回 None（不归档）。
+    """把一页 PDF 归到四类之一；不是电子发票返回 None（不归档）。
 
-    判定顺序：先火车票，再普票/专票，剩下的靠「电子发票」字样兜底进"其他发票"。
+    顺序是先总开关后细分：normal 的「电子发票」字样判据覆盖面最广，且能一次性排除说明书、
+    采购清单这类无关 PDF，省下后面两次解析；train 现在要求票面标题为
+    「电子发票（铁路电子客票）」，同样含「电子发票」，所以先筛不会把火车票挡在外面。
     """
+    if not is_electronic_invoice(page):
+        return None
+
     if extract_invoice_train(page).get("is_train"):
         return "火车票"
 
@@ -64,7 +70,7 @@ def classify(page):
         return "普通发票"
     if invoice_type == "vat_special_invoice":
         return "增值税发票"
-    return "其他发票" if is_electronic_invoice(page) else None
+    return "其他发票"
 
 
 def unique_path(folder, filename):
