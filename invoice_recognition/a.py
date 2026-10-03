@@ -1,7 +1,7 @@
 import pdfplumber
 from PIL import ImageFont
 
-path = ("temp/火车票.pdf")
+path = ("temp/赵老师高铁-台州至上海.pdf")
 with pdfplumber.open(path) as pdf:
     page = pdf.pages[0]
 
@@ -39,5 +39,5 @@ with pdfplumber.open(path) as pdf:
 
 with pdfplumber.open(path) as pdf:
     page=pdf.pages[0]
-    text=page.extract_text(use_text_flow=True)
+    text=page.extract_text(use_text_flow=False)
     print(text)

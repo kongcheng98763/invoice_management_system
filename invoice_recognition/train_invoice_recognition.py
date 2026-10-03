@@ -10,13 +10,18 @@ def extract_invoice_train(page):
     从单页PDF中提取火车票关键字段。
     输入：pdfplumber.Page对象
     输出：dict， 即fields这一变量
-    键值对如下: fields["is_train"]     是否火车票(通过查找电子客票号来判断是火车票还是普通发票)
-              对于发票应该先判断这一键值对来判断是否是火车票，非火车票有且仅有一个键值对
-              fields["E_ticket_number"]  电子客票号25位
-              fields["invoice_no"]   发票号码20位    / fields["invoice_date"] 行程日期
-              fields["invoice_time"] 发车时间       / fields["total_amount"] 价税合计金额
-              fields["id"]           脱敏身份证号    / fields["person"]       乘车人姓名
-              fields["site"] = [parts1[0], parts2[0]]   [0]起点站 [1]终点站
+    键值对如下(按写入顺序编号):
+        1.  fields["is_train"]        是否火车票(裁剪标题区域匹配"电子发票（铁路电子客票）"字样判断)
+                                      非火车票直接返回，fields中仅含此一个键值对
+        2.  fields["e_ticket_number"] 电子客票号25位
+        3.  fields["state"]           客票状态(退票/补票/始发改签等，可能为None)
+        4.  fields["invoice_no"]      发票号码
+        5.  fields["invoice_date"]    行程日期
+        6.  fields["invoice_time"]    发车时间
+        7.  fields["total_amount"]    价税合计金额
+        8.  fields["id"]              脱敏身份证号
+        9.  fields["person"]          乘车人姓名
+        10. fields["site"] = [起点站, 终点站]
     """
     fields = {}
 
@@ -31,24 +36,40 @@ def extract_invoice_train(page):
     text_flow = unicodedata.normalize("NFKC", text_flow)
     text_flow_lines = [ln.strip() for ln in text_flow.splitlines() if ln.strip()]
 
-    # 1. 判断是否是火车票，通过查找"电子客票号"来判断，非火车票直接退出
+
+    # 1. is_train判断是否是火车票，通过查找特定区域的"电子发票（铁路电子客票）"来判断，非火车票直接退出
     is_train = False
-    e_ticket_number = None
-    for ln in text_flow_lines:
+    box1 = (89, 8, (418 + page.width) / 2, 38)
+    title_lines = page.crop(box1).extract_text(use_text_flow=True) or ""
+    title_lines = unicodedata.normalize("NFKC", title_lines)
+    title_lines = [ln.strip() for ln in title_lines.splitlines() if ln.strip()]
+
+    for ln in title_lines:
         m = re.search(r"\s*电\s*子\s*发\s*票\s*[（(]铁\s*路\s*电\s*子\s*客\s*票\s*[)）]", ln)
-        m1 = re.search(r"\s*电\s*子\s*客\s*票\s*号\s*[:：]?\s*([^\n]*)", ln)
         if m:
             is_train = True
-            if m1:
-                e_ticket_number = re.sub(r"\s", "", m1.group(1))
             break
 
     fields["is_train"] = is_train
     if not is_train:
         return fields
-    fields["e_ticket_number"] = e_ticket_number
 
-    # 2. 发票号码：通常以"发票号码"或"No."开头，后面跟一串数字
+    # 2. 电子客票号e_ticket_number,应该为25位,
+    #    记录state退票、补票、始发改签等状态
+    e_ticket_number = None
+    state = None
+    for ln in text_flow_lines:
+        m = re.search(r"\s*电\s*子\s*客\s*票\s*号\s*[:：]?\s*([^\n]{25})\s*([^\n]*)", ln)
+        if m:
+            e_ticket_number = re.sub(r"\s", "", m.group(1))
+            if m.group(2):
+                state = re.sub(r"\s", "", m.group(2))
+            break
+
+    fields["e_ticket_number"] = e_ticket_number
+    fields["state"] = state
+
+    # 3. invoice_no发票号码：通常以"发票号码"或"No."开头，后面跟一串数字
     invoice_no = None
     for ln in lines:
         #*匹配前面的子表达式0次或多次，？配位前面的子表达式0次或1次
@@ -59,7 +80,7 @@ def extract_invoice_train(page):
     fields["invoice_no"] = invoice_no
 
 
-    # 3. 行程日期：通常的格式是2024年05月18日
+    # 4. date_str、time_str行程日期：通常的格式是2024年05月18日
     date_str = None
     time_str = None
     for ln in lines:
@@ -74,7 +95,7 @@ def extract_invoice_train(page):
     fields["invoice_date"] = re.sub(r"\s", "", date_str)
     fields["invoice_time"] = re.sub(r"\s", "", time_str)
 
-    # 4. 价税合计金额：匹配"小写"那一行，通常格式为 ¥12345.67
+    # 5. amount价税合计金额：匹配"小写"那一行，通常格式为 ¥12345.67
     amount = None
     for ln in lines:
         m = re.search(r"[¥￥$]\s*[0-9]+\.*\d{0,2}", ln)
@@ -83,7 +104,7 @@ def extract_invoice_train(page):
             break
     fields["total_amount"] = amount
 
-    # 5. 人员信息 4304261980****4379 xxx
+    # 6. person、id_number人员信息 4304261980****4379 王伟
     person = None
     id_number = None
     for ln in lines:
@@ -95,7 +116,7 @@ def extract_invoice_train(page):
     fields["id"] = id_number
     fields["person"] = person
 
-    # 6. 站点信息"xx"站->"xx"站
+    # 7. station1、station2站点信息"xx"站->"xx"站
     box1 = (0,70,241,105)
     box2 = (329,69,page.width,105)
     station1 = page.crop(box1).extract_text()
@@ -111,7 +132,7 @@ def extract_invoice_train(page):
     return fields
 
 if __name__ == "__main__":
-    with pdfplumber.open("temp/火车票.pdf") as pdf:
+    with pdfplumber.open("temp/典型火车票/26329199021000300418.pdf") as pdf:
         length=len(pdf.pages)
         if length==1:
             field=extract_invoice_train(pdf.pages[0])

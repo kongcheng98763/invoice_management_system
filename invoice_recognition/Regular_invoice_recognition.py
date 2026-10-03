@@ -64,7 +64,7 @@ def extract_invoice_regular(page):
 
 
 if __name__ == "__main__":
-    with pdfplumber.open("temp/dzfp_26332000007587400606_台州学院_20260902183915.pdf") as pdf:
+    with pdfplumber.open("temp/增值税1.pdf") as pdf:
         length=len(pdf.pages)
         field = extract_invoice_regular(pdf.pages[0])
         print(field)
