@@ -8,15 +8,32 @@
 识别不出「电子发票」字样的 PDF 视为非电子发票文件，不复制，只在日志里列出。
 """
 
+import logging
 import os
 import shutil
+import threading
 from pathlib import Path
+from queue import Empty, Queue
 from tkinter import filedialog, messagebox, scrolledtext
 
 import pdfplumber
 import tkinter as tk
 
-# 提取函数失败时会逐个弹窗，批量扫描会被卡住；先保存 GUI 自己要用的 showwarning，再屏蔽
+
+class _QuietFontBBox(logging.Filter):
+    """pdfminer 碰到字体没有 FontBBox 时逐条告警（包围盒退化成 0,0,0,0，文字照样能抽出来）。
+
+    批量扫描时这类噪音会淹没结果，只挡这一条，其余警告照常输出。
+    """
+
+    def filter(self, record):
+        return "Could not get FontBBox" not in record.getMessage()
+
+
+logging.getLogger("pdfminer.pdffont").addFilter(_QuietFontBBox())
+
+# 提取函数失败时会弹 tkinter 窗：批量扫描既会被逐个对话框卡住，也不能在后台线程里碰 Tk，
+# 因此先保存 GUI 自己要用的 showwarning，再把模块级的换成空操作
 _gui_warn = messagebox.showwarning
 messagebox.showwarning = lambda *args, **kwargs: None
 
@@ -118,6 +135,8 @@ class App(tk.Tk):
         super().__init__()
         self.title("发票收集与分类")
         self.geometry("720x440")
+        self.msgs = Queue()
+        self.scanning = False
 
         row = tk.Frame(self, padx=10, pady=10)
         row.pack(fill="x")
@@ -147,31 +166,60 @@ class App(tk.Tk):
         self.log.insert("end", line + "\n")
         self.log.see("end")
         self.log.configure(state="disabled")
-        self.update_idletasks()
 
     def run(self):
+        if self.scanning:
+            return
         folder = self.folder_var.get().strip().strip('"')
         search_root = Path(folder).resolve() if folder else None
         if search_root is None or not search_root.is_dir():
             _gui_warn("提示", "请先选择存在的文件夹")
             return
 
+        # 逐个 PDF 解析要几秒到几分钟，放在主线程里 Tk 不处理事件，拖动窗口就会变成「未响应」；
+        # 因此扫描进后台线程，只通过队列往回传文本，控件一律由主线程的 _poll 更新
+        self.scanning = True
         self.run_btn.configure(state="disabled", text="分类中…")
         self.write(f"开始扫描：{search_root}")
-        try:
-            counts, multi_page, non_invoices, unreadable = collect(search_root, DEFAULT_OUT, self.write)
-        except Exception as exc:
-            self.write(f"扫描中断：{exc}")
-            counts = {}
-        finally:
-            self.run_btn.configure(state="normal", text="开始分类")
+        threading.Thread(target=self._scan, args=(search_root,), daemon=True).start()
+        self.after(100, self._poll)
 
-        if counts:
-            self.write(f"\n已归档 {sum(counts.values())} 个发票（其中多页 {multi_page} 个）到 {DEFAULT_OUT}")
-            for name in CATEGORIES:
-                self.write(f"  {name}: {counts[name]}")
-            self.write(f"  非发票（未复制）: {len(non_invoices)}")
-            self.write(f"  无法解析（未复制）: {len(unreadable)}")
+    def _scan(self, search_root):
+        try:
+            result = collect(search_root, DEFAULT_OUT, lambda line: self.msgs.put(("line", line)))
+        except Exception as exc:
+            self.msgs.put(("error", str(exc)))
+        else:
+            self.msgs.put(("done", result))
+
+    def _poll(self):
+        while True:
+            try:
+                kind, payload = self.msgs.get_nowait()
+            except Empty:
+                break
+            if kind == "line":
+                self.write(payload)
+            elif kind == "error":
+                self.write(f"扫描中断：{payload}")
+                self._finish_scan()
+            elif kind == "done":
+                self._summarise(payload)
+                self._finish_scan()
+        if self.scanning:
+            self.after(100, self._poll)
+
+    def _summarise(self, result):
+        counts, multi_page, non_invoices, unreadable = result
+        self.write(f"\n已归档 {sum(counts.values())} 个发票（其中多页 {multi_page} 个）到 {DEFAULT_OUT}")
+        for name in CATEGORIES:
+            self.write(f"  {name}: {counts[name]}")
+        self.write(f"  非发票（未复制）: {len(non_invoices)}")
+        self.write(f"  无法解析（未复制）: {len(unreadable)}")
+
+    def _finish_scan(self):
+        self.scanning = False
+        self.run_btn.configure(state="normal", text="开始分类")
 
     def open_out(self):
         DEFAULT_OUT.mkdir(parents=True, exist_ok=True)
