@@ -47,7 +47,7 @@ def extract_invoice_regular(page):
     info = page.crop(box1).extract_text() or ""
     info = unicodedata.normalize("NFKC", info)
     m1 = re.search(r"\s*开\s*票\s*日\s*期\s*[:：]?\s*(\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日)", info)
-    m2 = re.search(r"\s*发\s*票\s*号\s*码\s*[:：]?\s*(\d{20})", info)
+    m2 = re.search(r"\s*发\s*票\s*号\s*码\s*[:：]?\s*((\d\s*){20})", info)
     if m1:
         invoice_date=re.sub(r"\s","",m1.group(1))
     else:
@@ -59,6 +59,29 @@ def extract_invoice_regular(page):
 
     fields["invoice_date"] = invoice_date
     fields["invoice_number"] = invoice_number
+
+    # 3. invoice_seller 销售方信息（用 rows/columns 取第一行最右cell）
+    invoice_seller = None
+    invoice_seller_tables = page.find_tables()
+
+    # 调试用：打印每个表格每一行的 cells 内容（None 表示被合并单元格覆盖的位置）
+    for i, t in enumerate(invoice_seller_tables):
+        print(f"[表格 {i}] 行数={len(t.rows)} 列数={len(t.columns)}")
+        for r, row in enumerate(t.rows):
+            cell_texts = []
+            for cell in row.cells:
+                if cell is None:
+                    cell_texts.append("<None:合并>")
+                else:
+                    # 用单元格 bbox 裁剪页面取文字（不要用 row.bbox ∩ col.bbox 手动交叉计算）
+                    txt = page.crop(cell).extract_text() or ""
+                    txt = unicodedata.normalize("NFKC", txt).replace("\n", " ")
+                    cell_texts.append(txt)
+            print(f"  row[{r}]: {cell_texts}")
+
+    fields["invoice_seller"] = invoice_seller
+    print(invoice_seller)
+
 
     return fields
 

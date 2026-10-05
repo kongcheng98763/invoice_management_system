@@ -5,7 +5,7 @@ from PIL import ImageFont
 # Windows 控制台默认 GBK，提取的文字含 ¥ 等字符会打印报错，改 stdout 为 UTF-8
 sys.stdout.reconfigure(encoding="utf-8")
 
-path = "temp/7、红外传感.pdf"
+path = "temp/增值税_多页.pdf"
 
 # 画中文需要支持 CJK 的字体，Windows 下用微软雅黑；拿不到则回退默认(只能显示数字)
 try:
@@ -22,7 +22,7 @@ COLORS = [
 ]
 
 with pdfplumber.open(path) as pdf:
-    page = pdf.pages[0]
+    page = pdf.pages[1]
     im = page.to_image(resolution=800)
 
     # 查看 table 坐标：find_tables 返回 Table 对象，含整表 bbox 和每个单元格 cells
@@ -59,7 +59,7 @@ with pdfplumber.open(path) as pdf:
             coord_str = f"({cx0:.0f},{ctop:.0f},{cx1:.0f},{cbottom:.0f})"
             im.draw.text((ccx + nw / 2 + 6, ccy), coord_str, fill="black", font=font, anchor="lm")
 
-    im.save("temp/debug_table1.png")
+    im.save("temp/debug_table_多页.png")
     log(f"\n已保存调试图: temp/debug_table.png (不同颜色=不同单元格坐标)")
 
     # 将坐标信息输出到 temp/table_cells.txt
