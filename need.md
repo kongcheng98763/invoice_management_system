@@ -81,14 +81,19 @@
 
 ### 4.1 现状承接
 
-`invoice_recognition\` 目前只有配置，没有业务代码：
+`invoice_recognition\` 已经不只是配置，识别与服务两侧都有代码：
 
-- `config.py` — `base_path = r".\报销"`、`excel_filename = r"报销表.xlsm"`、`category_map`（7 条：差旅费/会员费/版面费/餐饮费/材料费 → 日常报销；学生劳务费/专家咨询费 → 酬金申报）
-- `pyproject.toml` — 名称 `invoice-recognition`、Python `>=3.12`，**`dependencies = []` 为空**
-- `test.py` — 空文件
-- `报销表.xlsm` — 现有模板，含 1 个 Sheet「报销总述」、25 行实际数据（含表头共 26 行）
+- `config.py` — `base_path = r".\报销"`、`excel_filename = r"temp/报销表.xlsm"`、`reimbursement_map`（3 个报销大类 → 9 个报销项目：日常报销←会员费/版面费/餐饮费/材料费；酬金申报←学生劳务费/专家咨询费；国内差旅←差旅费）。**目前没有任何模块 import 它**，报销自动填写那一步落地时才接上
+- `classify_invoices.py` —  tkinter 版分类窗口，同时是「扫目录 → 判票种 → 复制归档」的公共实现（`collect`），服务侧复用它
+- `invoice_item_recognition.py` — 普通发票与增值税发票共用的项目明细/购销方/合计/开票人解析，含跨页拼接
+- `regular_invoice_recognition.py`、`VAT_invoice_recognition.py`、`train_invoice_recognition.py` — 三种票的票面字段提取
+- `invoice_service.py` — FastAPI + WebSocket 常驻服务（见 3.1 方案 A）
+- `a.py`、`b.py` — 开发期看版面用的临时脚本（画表格框、导图片），不参与运行
+- `pyproject.toml` — 名称 `invoice-recognition`、Python `>=3.12`，依赖 `pdfplumber`、`fastapi`、`uvicorn[standard]`
+- `发票特性记录.txt` — 各类票的版式观察记录
 
-> `category_map` 与实际数据不一致，见 5.2-①。
+> 早先记录的 `test.py`（空文件）已不在仓库里；`报销表.xlsm` 模板在当前工作副本中也找不到（`config.excel_filename` 指向 `temp/报销表.xlsm`），第五节的建表要等模板回到仓库才能对照实测数据校验。
+> `reimbursement_map` 的键与实际数据是否一致，见 5.2-①。
 
 
 ## 五、数据库的结构（SQLite）

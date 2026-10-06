@@ -2,7 +2,7 @@ import pdfplumber
 import re
 import unicodedata
 
-from tkinter import messagebox
+from invoice_item_recognition import warn
 
 
 def extract_invoice_train(page):
@@ -40,7 +40,7 @@ def extract_invoice_train(page):
     # 1. is_train判断是否是火车票，通过查找特定区域的"电子发票（铁路电子客票）"来判断，非火车票直接退出
     is_train = False
     box = (89, 8, (418 + page.width) / 2, 38)
-    title_lines = page.crop(box).extract_text(use_text_flow=True) or ""
+    title_lines = page.crop(box, strict=False).extract_text(use_text_flow=True) or ""
     title_lines = unicodedata.normalize("NFKC", title_lines)
     title_lines = [ln.strip() for ln in title_lines.splitlines() if ln.strip()]
 
@@ -90,17 +90,18 @@ def extract_invoice_train(page):
             time_str = m.group(2)
             break
     if date_str is None or time_str is None:
-        messagebox.showwarning("警告", "日期时间提取失败")
+        warn("日期时间提取失败")
         return fields
     fields["invoice_date"] = re.sub(r"\s", "", date_str)
     fields["invoice_time"] = re.sub(r"\s", "", time_str)
 
     # 5. amount价税合计金额：匹配"小写"那一行，通常格式为 ¥12345.67
+    #    只留数字，与 invoice_item_recognition 的金额栏表示一致（¥ 由界面自己补）
     amount = None
     for ln in lines:
-        m = re.search(r"[¥￥$]\s*[0-9]+\.*\d{0,2}", ln)
+        m = re.search(r"[¥￥$]\s*([0-9][0-9,]*\.?\d{0,2})", ln)
         if m:
-            amount = re.sub(r"\s", "", m.group(0))  # 去除货币符号和数字之间的所有空白
+            amount = re.sub(r"[¥￥$,\s]", "", m.group(1))
             break
     fields["total_amount"] = amount
 
@@ -119,16 +120,14 @@ def extract_invoice_train(page):
     # 7. station1、station2站点信息"xx"站->"xx"站
     box1 = (0,70,241,105)
     box2 = (329,69,page.width,105)
-    station1 = page.crop(box1).extract_text() or ""
-    station2 = page.crop(box2).extract_text() or ""
-    station1 = unicodedata.normalize("NFKC", station1)
-    station2 = unicodedata.normalize("NFKC", station2)
-
-    if station1 is None or station2 is None:
-        messagebox.showwarning("警告", "站点信息提取失败")
+    raw1 = page.crop(box1, strict=False).extract_text()
+    raw2 = page.crop(box2, strict=False).extract_text()
+    # 判空要在补成 "" 之前：`or ""` 之后再问 is None 永远是 False，取不到站点就成了静默空值
+    if not raw1 or not raw2:
+        warn("站点信息提取失败")
         return fields
-    station1 = station1.strip().split("\n")[0]
-    station2 = station2.strip().split("\n")[0]
+    station1 = unicodedata.normalize("NFKC", raw1).strip().split("\n")[0]
+    station2 = unicodedata.normalize("NFKC", raw2).strip().split("\n")[0]
 
     fields["site"] = [station1, station2]
 
@@ -142,4 +141,4 @@ if __name__ == "__main__":
             print(field)
         else:
             print("超过一页")
-            messagebox.showwarning("警告", "PDF超过一页")
+            warn("PDF超过一页")

@@ -3,5 +3,7 @@ name = "invoice-recognition"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.142.2",
     "pdfplumber>=0.11.10",
+    "uvicorn[standard]>=0.54.0",
 ]

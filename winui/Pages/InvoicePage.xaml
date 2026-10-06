@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="winui.Pages.InvoicePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:winui.Pages"
+    xmlns:models="using:winui.Models"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+
+        <DataTemplate x:Key="FileItemTemplate" x:DataType="models:InvoiceFileEntry">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Display}" />
+                <TextBlock Text="{Binding PageNote}" Opacity="0.65" />
+            </StackPanel>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid Padding="20,16,20,16" RowSpacing="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 整个框都是放置目标：微信聊天窗口、资源管理器里的 PDF 都可以直接拽进来 -->
+        <Border
+            x:Name="DropZone"
+            Grid.Row="0"
+            Padding="10"
+            AllowDrop="True"
+            Background="Transparent"
+            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            DragEnter="DropZone_DragEnter"
+            DragLeave="DropZone_DragLeave"
+            DragOver="DropZone_DragOver"
+            Drop="DropZone_Drop">
+            <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="源目录" VerticalAlignment="Center" />
+                    <TextBox
+                        x:Name="FolderPathBox"
+                        Width="420"
+                        VerticalAlignment="Center"
+                        AllowDrop="True"
+                        DragEnter="DropZone_DragEnter"
+                        DragLeave="DropZone_DragLeave"
+                        DragOver="DropZone_DragOver"
+                        Drop="DropZone_Drop"
+                        PlaceholderText="要扫描 PDF 的文件夹，或把文件直接拖进来"
+                        TextWrapping="NoWrap" />
+                    <Button x:Name="PickFolderButton" Content="选择文件夹" Click="PickFolderButton_Click" />
+                    <Button x:Name="StartScanButton" Content="开始分类" Style="{StaticResource AccentButtonStyle}" Click="StartScanButton_Click" />
+                    <Button x:Name="OpenArchiveButton" Content="打开归档目录" Click="OpenArchiveButton_Click" />
+                </StackPanel>
+                <!-- 「粘贴文件」「清除拖入」单独一行：上面那行已经有 5 个控件，
+                     再挤两个进来，行尾那个条件显示的按钮会被裁到窗口外，用户看不见也点不到 -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <!-- 拖不动时的退路：资源管理器/微信里 Ctrl+C，再点这里。走的是同一个 DataPackageView -->
+                    <Button
+                        x:Name="PasteButton"
+                        Content="粘贴文件"
+                        Click="PasteButton_Click"
+                        ToolTipService.ToolTip="先复制文件或文件夹（Ctrl+C），点这里读进来，和拖进这个框是同一条路" />
+                    <Button x:Name="ClearDropButton" Content="清除拖入" Visibility="Collapsed" Click="ClearDropButton_Click" />
+                </StackPanel>
+                <TextBlock
+                    x:Name="DropHintText"
+                    Opacity="0.7"
+                    Text="也可以把微信里收到的发票、或资源管理器里的 PDF 直接拖进这个框（拖不动就复制后点「粘贴文件」），再点「开始分类」。"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <StackPanel Spacing="3">
+                <TextBlock Text="只复制副本，原件一律不动；没通过「电子发票」筛的 PDF 不复制，只在日志里列出。" TextWrapping="Wrap" />
+                <TextBlock x:Name="ArchivePathText" Text="归档目录：invoice_recognition\temp\发票分类" TextWrapping="Wrap" Opacity="0.7" />
+                <TextBlock x:Name="MultiPageNoteText" Text="多页文件按第一页判类，归入所属类别下的「多页文件」子文件夹。" TextWrapping="Wrap" Opacity="0.7" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="TrainHeaderText" Text="火车票" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ListView x:Name="TrainList" Grid.Row="1" Margin="0,4,0,0" Padding="0" SelectionMode="None" ItemTemplate="{StaticResource FileItemTemplate}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="VatHeaderText" Text="增值税发票" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ListView x:Name="VatList" Grid.Row="1" Margin="0,4,0,0" Padding="0" SelectionMode="None" ItemTemplate="{StaticResource FileItemTemplate}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="RegularHeaderText" Text="普通发票" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ListView x:Name="RegularList" Grid.Row="1" Margin="0,4,0,0" Padding="0" SelectionMode="None" ItemTemplate="{StaticResource FileItemTemplate}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="OtherHeaderText" Text="其他发票" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ListView x:Name="OtherList" Grid.Row="1" Margin="0,4,0,0" Padding="0" SelectionMode="None" ItemTemplate="{StaticResource FileItemTemplate}" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="扫描日志" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                <ScrollViewer x:Name="LogScroll" Grid.Row="1">
+                    <TextBox
+                        x:Name="LogBox"
+                        IsReadOnly="True"
+                        AcceptsReturn="True"
+                        TextWrapping="Wrap"
+                        FontFamily="Consolas"
+                        VerticalAlignment="Top"
+                        HorizontalAlignment="Stretch"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1" />
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>

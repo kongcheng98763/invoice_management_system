@@ -439,3 +439,32 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# ---- 本项目补充（2026-10，只追加，不动上面的原内容）----
+# 台账/报销表导出与本地 SQLite 库：里面是真人的票面和身份信息，绝不进版本库。
+# 原有 *.pdf / *.png / temp/ 已经挡住票样语料；这几条补上以后会落到仓库里的表格和库文件。
+# 真要提交一个空模板/示例时，用 git add -f <路径> 显式加。
+*.xlsx
+*.xls
+*.csv
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+
+# 转储/抓包/编辑器状态：调试产物里可能带票面原文
+*.dmp
+*.har
+*.userstate
+
+# 记事本与编辑器的自动备份/撤销缓存，以及 Python 优化字节码
+*.bak
+*.pyo
+*.wniu
+*.wnhar
+*.wndu
+
+# 打包时自动生成的清单（源文件叫 Package.appxmanifest，不会被这条误伤）
+*.appxmanifest.xml

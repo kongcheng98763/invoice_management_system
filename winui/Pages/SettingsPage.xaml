@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="winui.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:winui.Pages"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+    </Page.Resources>
+
+    <ScrollViewer Padding="24,20,24,24">
+        <StackPanel Spacing="12" MaxWidth="720" HorizontalAlignment="Left">
+            <TextBlock Text="设置" Style="{StaticResource TitleTextBlockStyle}" />
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="本地服务" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="单人本地使用，不做登录也不做权限，服务由 Python 侧常驻在 127.0.0.1。" TextWrapping="Wrap" Opacity="0.75" />
+                    <TextBlock Text="HTTP 地址" />
+                    <TextBox x:Name="ApiBaseUrlBox" PlaceholderText="http://127.0.0.1:8765" />
+                    <TextBlock Text="WebSocket 地址" />
+                    <TextBox x:Name="WsUrlBox" PlaceholderText="ws://127.0.0.1:8765/ws" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="TestConnectionButton" Content="测试连接" Click="TestConnectionButton_Click" />
+                        <Button x:Name="ConnectWebSocketButton" Content="连接推送" Click="ConnectWebSocketButton_Click" />
+                    </StackPanel>
+                    <TextBlock x:Name="ConnectionStatusText" Text="未检测" TextWrapping="Wrap" Opacity="0.75" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="发票归档" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="分类结果落在 invoice_recognition\temp\发票分类\，四类各带一个「多页文件」子文件夹；这里只影响能否直接点开目录，实际写入由服务侧决定。" TextWrapping="Wrap" Opacity="0.75" />
+                    <TextBox x:Name="ArchiveDirBox" PlaceholderText="invoice_recognition\temp\发票分类" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="界面" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <ToggleSwitch x:Name="RestoreLastPageSwitch" Header="启动时回到上次浏览的页面" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="SaveButton" Content="保存" Style="{StaticResource AccentButtonStyle}" Click="SaveButton_Click" />
+            </StackPanel>
+            <TextBlock x:Name="SaveStatusText" Text="尚未修改" Opacity="0.7" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

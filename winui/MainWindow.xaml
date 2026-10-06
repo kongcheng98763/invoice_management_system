@@ -7,13 +7,47 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Title="winui">
+    Title="发票管理系统">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
     <Grid>
+        <!-- 设置项走 MenuItems，内置设置按钮关掉，左侧正好四个页面 -->
+        <NavigationView
+            x:Name="RootNavigation"
+            PaneTitle="发票管理系统"
+            IsSettingsVisible="False"
+            IsBackButtonVisible="Collapsed"
+            IsBackEnabled="False"
+            CompactModeThresholdWidth="640"
+            ItemInvoked="RootNavigation_ItemInvoked">
 
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="首页" Tag="Home">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="报销台账" Tag="Data">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8F1;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="发票识别" Tag="Invoices">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A5;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="设置" Tag="Settings">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <Frame x:Name="ContentFrame" Navigated="ContentFrame_Navigated" />
+        </NavigationView>
     </Grid>
 </Window>

@@ -14,6 +14,11 @@
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <!-- 长路径声明。本机实测（temp\longpath_manifest_probe.py）：系统 LongPathsEnabled=0 时，
+           .NET 的 File.Exists/读取 和 shell 的 IShellItem 对 461 字符路径在「有声明」「无声明」
+           两种进程里表现完全一样（shell 回吐 8.3 短名形式），所以这条不是当前链路的关键。
+           留着是因为它只在系统开关打开时才是必需的，且没有副作用；别把它当「长路径已修好」的依据。 -->
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
     </windowsSettings>
   </application>
 </assembly>

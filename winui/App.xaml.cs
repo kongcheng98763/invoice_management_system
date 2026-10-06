@@ -1,50 +1,52 @@
-﻿using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
+using Microsoft.UI.Xaml;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
 
 namespace winui
 {
     /// <summary>
-    /// Provides application-specific behavior to supplement the default Application class.
+    /// 应用外壳：建主窗口并激活。
+    /// 页面构造函数、异步续体里抛出来的异常默认会让进程直接没了，本机跑又没有任何记录，
+    /// 所以这里兜一道，把出错的现场写进 %LocalAppData%\invoice_management_system\crash.log。
     /// </summary>
     public partial class App : Application
     {
-        private Window? _window;
-
         /// <summary>
-        /// Initializes the singleton application object.  This is the first line of authored code
-        /// executed, and as such is the logical equivalent of main() or WinMain().
+        /// 页面里要用窗口句柄（文件夹选择器需要绑到当前窗口），这里留一个入口。
         /// </summary>
+        public static Window? MainWindow { get; private set; }
+
         public App()
         {
             InitializeComponent();
+            UnhandledException += (sender, args) =>
+            {
+                LogCrash(args.Exception);
+                args.Handled = true;      // 报出去之后让窗口继续活着，别整个退掉
+            };
         }
 
-        /// <summary>
-        /// Invoked when the application is launched.
-        /// </summary>
-        /// <param name="args">Details about the launch request and process.</param>
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            _window = new MainWindow();
-            _window.Activate();
+            MainWindow = new MainWindow();
+            MainWindow.Activate();
+        }
+
+        private static void LogCrash(Exception exception)
+        {
+            try
+            {
+                var root = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "invoice_management_system");
+                Directory.CreateDirectory(root);
+                File.AppendAllText(Path.Combine(root, "crash.log"),
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {exception.GetType().Name}: {exception.Message}\n{exception.StackTrace}\n\n");
+            }
+            catch (Exception)
+            {
+                // 连日志都写不了就只能算了，不能让记录崩溃本身再崩一次
+            }
         }
     }
 }

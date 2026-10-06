@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="winui.Pages.DataPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:winui.Pages"
+    xmlns:models="using:winui.Models"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="RowTemplate" x:DataType="models:ReimbursementRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="90" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding HappenedOn}" />
+                <TextBlock Grid.Column="1" Text="{Binding Category}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Text="{Binding Item}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Text="{Binding Amount}" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="4" Text="{Binding FormNo}" />
+                <TextBlock Grid.Column="5" Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="6" Text="{Binding Note1}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="7" Text="{Binding Note2}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="8" Text="{Binding Status}" />
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid Padding="20,16,20,16" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+            <Button x:Name="RefreshButton" Content="刷新" Style="{StaticResource AccentButtonStyle}" Click="RefreshButton_Click" />
+            <Button Content="新增报销" IsEnabled="False" />
+            <Button Content="导入 报销表.xlsm" IsEnabled="False" />
+            <Button Content="与归档目录对账" IsEnabled="False" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Padding="12,6,12,6" Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="130" />
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="90" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="经手时间" FontWeight="SemiBold" Opacity="0.8" />
+            <TextBlock Grid.Column="1" Text="报销大类" FontWeight="SemiBold" Opacity="0.8" />
+            <TextBlock Grid.Column="2" Text="报销项目" FontWeight="SemiBold" Opacity="0.8" />
+            <TextBlock Grid.Column="3" Text="金额" FontWeight="SemiBold" Opacity="0.8" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="4" Text="报销单号" FontWeight="SemiBold" Opacity="0.8" />
+            <TextBlock Grid.Column="5" Text="项目负责人" FontWeight="SemiBold" Opacity="0.8" />
+            <TextBlock Grid.Column="6" Text="备注1" FontWeight="SemiBold" Opacity="0.8" />
+            <TextBlock Grid.Column="7" Text="备注2" FontWeight="SemiBold" Opacity="0.8" />
+            <TextBlock Grid.Column="8" Text="完成" FontWeight="SemiBold" Opacity="0.8" />
+        </Grid>
+
+        <ListView
+            x:Name="LedgerList"
+            Grid.Row="2"
+            Padding="0"
+            SelectionMode="Single"
+            ItemTemplate="{StaticResource RowTemplate}" />
+
+        <TextBlock x:Name="LedgerStatusText" Grid.Row="3" Text="尚未读取台账数据" Opacity="0.7" />
+    </Grid>
+</Page>
