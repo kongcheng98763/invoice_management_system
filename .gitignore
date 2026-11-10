@@ -11,6 +11,7 @@ temp/
 .pdf
 .xlsm
 .png
+.codebuddy
 
 # User-specific files
 *.rsuser

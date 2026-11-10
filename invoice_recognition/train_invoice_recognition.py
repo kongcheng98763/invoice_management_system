@@ -104,7 +104,7 @@ def extract_invoice_train(page):
             break
     fields["total_amount"] = amount
 
-    # 6. person、id_number人员信息 4304261980****4379 王伟
+    # 6. person、id_number人员信息 4303675880****4919 王伟
     person = None
     id_number = None
     for ln in lines:
